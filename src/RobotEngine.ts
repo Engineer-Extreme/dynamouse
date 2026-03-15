@@ -6,6 +6,7 @@ import { BaseObserver } from './BaseObserver';
 import { screen } from 'electron';
 import { moveMouse } from '@jitsi/robotjs';
 import { Logger } from 'winston';
+import { TypingEngine } from './TypingEngine';
 
 export interface AssignmentListener {
   willActivate: () => any;
@@ -98,6 +99,7 @@ export class Assignment extends BaseObserver<AssignmentListener> {
 
 export interface RobotEngineOptions {
   pointerEngine: PointerEngine;
+  typingEngine: TypingEngine;
   displayEngine: DisplayEngine;
   logger: Logger;
 }
