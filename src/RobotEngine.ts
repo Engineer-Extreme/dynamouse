@@ -1,7 +1,10 @@
 import { Display } from 'electron';
+import { Window, WindowManager } from 'node-window-manager';
 import { Config } from './ConfigEngine';
 import { PointerDevice, PointerEngine } from './PointerEngine';
+import { TypingDevice } from './TypingEngine';
 import { DisplayEngine } from './DisplayEngine';
+import { WindowEngine } from './WindowEngine';
 import { BaseObserver } from './BaseObserver';
 import { screen } from 'electron';
 import { moveMouse } from '@jitsi/robotjs';
@@ -86,6 +89,74 @@ export class Assignment extends BaseObserver<AssignmentListener> {
     }
 
     moveMouse(pos_x, pos_y);
+    this.activated = true;
+    return this.device.disconnect();
+  }
+
+  async dispose() {
+    this.listener();
+    await this.device.disconnect();
+    this.iterateListeners((cb) => cb.disposed?.());
+  }
+}
+
+export class TypingAssignment extends BaseObserver<AssignmentListener> {
+  activated: boolean;
+  typed: boolean;
+  listener: () => any;
+
+  constructor(
+    protected device: TypingDevice,
+    protected window: Window
+  ) {
+    super();
+    this.activated = false;
+    this.typed = false;
+    this.listener = device.registerListener({
+      typed: () => {
+        if (!this.activated) {
+          this.iterateListeners((cb) => cb.willActivate?.());
+        }
+      }
+    });
+  }
+
+  async init() {
+    return this.device.connect();
+  }
+
+  consumes(sink) {
+    return this.window == sink;
+  }
+
+  async deactivate() {
+    this.activated = false;
+    this.active = WindowManager.getActiveWindow();
+    return this.device.connect();
+  }
+
+  async activate(prev?: TypingAssignment) {
+    if (this.activated) {
+      return;
+    }
+    const { active } = this.window.id;
+    let sink = this.active;
+
+    if (this.active == null) {
+      this.active = this.window.id;
+    }
+
+    // previous device text cursor was in this window, just use it
+    if (prev && this.consumes(prev.window)) {
+      this.active = prev.window;
+    }
+
+    // this device text cursor was in a different window, change focus
+    else if (!this.consumes(this.active)) {
+      this.active = this.window.id;
+    }
+
+    this.window.bringToTop();
     this.activated = true;
     return this.device.disconnect();
   }
