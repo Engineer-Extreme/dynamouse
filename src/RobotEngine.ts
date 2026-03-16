@@ -172,6 +172,7 @@ export interface RobotEngineOptions {
   pointerEngine: PointerEngine;
   typingEngine: TypingEngine;
   displayEngine: DisplayEngine;
+  windowEngine: WindowEngine;
   logger: Logger;
 }
 
@@ -201,6 +202,34 @@ export class RobotEngine {
         continue;
       }
       let assignment = new Assignment(device, display);
+      const listener = assignment.registerListener({
+        willActivate: async () => {
+          if (this.lock) {
+            return;
+          }
+          this.logger.debug(`Activating: ${device.product}`);
+          this.lock = true;
+          const activated = this.assignments.find((a) => a.activated);
+          await activated?.deactivate();
+          await assignment.activate(activated);
+          this.lock = false;
+        },
+        disposed: () => {
+          listener?.();
+        }
+      });
+      this.assignments.push(assignment);
+    }
+    for  (let key in config.devices) {
+      const device = this.options.typingEngine.getDevice(key);
+      if (!config.devices[key].window) {
+        continue;
+      }
+      const window = this.options.windowEngine.getWindow(config.devices[key].window);
+      if (!window || !device) {
+        continue;
+      }
+      let assignment = new TypingAssignment(device, window);
       const listener = assignment.registerListener({
         willActivate: async () => {
           if (this.lock) {
